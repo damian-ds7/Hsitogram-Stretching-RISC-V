@@ -2,16 +2,15 @@
         .eqv    allocated, t1
         .eqv    offset, t2
         .eqv    file_decriptor, s0
-        .eqv    out_decriptor, s1
-        .eqv    width, s2
-        .eqv    height, s3
-        .eqv    padding, s4
-        .eqv    red_min, s5
-        .eqv    red_max, s6
-        .eqv    green_min, s7
-        .eqv    green_max, s8
-        .eqv    blue_min, s9
-        .eqv    blue_max, s10
+        .eqv    width, s1
+        .eqv    height, s2
+        .eqv    padding, s3
+        .eqv    red_min, s4
+        .eqv    red_max, s5
+        .eqv    green_min, s6
+        .eqv    green_max, s7
+        .eqv    blue_min, s8
+        .eqv    blue_max, s9
         .eqv    current_pixel_address, t3
         .eqv    current_pixel_value, t4
 
@@ -21,9 +20,9 @@ filename:     .space  100 # input filename
 title:  .asciz  "Histogram stretching\n"
 prompt: .asciz  "Enter input filename: "
 error:  .asciz  "Error reading file\n"
-info:   .asciz  "File has been opened successfuly"
-inv_name:.asciz  "Filename cannot be blank"
-out:    .asciz  "out.bmp"
+info1:   .asciz  "Successfuly opened file\n"
+info2:   .asciz  "Successfuly closed file\n"
+inv_name:.asciz  "Filename cannot be blank\n"
 n:      .asciz  "\n"
 
         .macro quit
@@ -37,20 +36,6 @@ n:      .asciz  "\n"
         ecall
         .end_macro
 
-        .macro get_name %buf, %size
-        li a7, 8
-        la a0, %buf
-        li a1, %size
-        ecall
-        .end_macro
-
-        .macro open_file %name, %flag
-        li a7, 1024
-        la a0, %name
-        li a1, %flag
-        ecall
-        .end_macro
-
         .macro read_from_file %num_of_bytes %buf
         mv a0, file_decriptor
         la a1, %buf
@@ -59,17 +44,9 @@ n:      .asciz  "\n"
         ecall
         .end_macro
 
-        .macro save_to_file %num_of_bytes %buf
-        mv a0, out_decriptor
-        la a1, %buf
-        li a2, %num_of_bytes
-        li a7, 64
-        ecall
-        .end_macro
-
         .macro print_int %register
         mv a0, %register
-        li a7, 36
+        li a7, 34
         ecall
         .end_macro
 
@@ -79,7 +56,10 @@ main:
         print title
 
         print prompt
-        get_name filename, 100
+        li a7, 8
+        la a0, filename
+        li a1, 100
+        ecall
 
         la t0, filename
         lb t1, (t0)
@@ -97,19 +77,17 @@ remove_new_line:
 
 open_files:
         # open input file and save decriptor
-        open_file filename, 0
+        li a7, 1024
+        la a0, filename
+        li a1, 0
+        ecall
         bltz a0, error_reading
         mv file_decriptor, a0
-
-        # open ouptut file and save decriptor
-        # open_file out, 1
-        # mv out_decriptor, a0
+        print info1
 
 read_header:
         read_from_file 2, buf    # read first 2 bytes of bmp header
-        # save_to_file 2, buf      # save to output file
         read_from_file 12, buf   # read rest of bmp header
-        # save_to_file 12, buf     # save to output file
 
         la t4, buf
         lw size, (t4) # load size
@@ -118,12 +96,21 @@ read_header:
         la t4, buf
         lw width, 4(t4)         # laod width
         lw height, 8(t4)        # load height
-        # save_to_file 40, buf
+
+        mv a0, file_decriptor
+        li a7, 57
+        ecall
+
+        li a7, 1024
+        la a0, filename
+        li a1, 0
+        ecall
+        bltz a0, error_reading
+        mv file_decriptor, a0
 
 size_calc:
         andi padding, width, 3  # calculate padding
         add width, width, padding # get padded width value
-        addi size, size, -54    # calculate pixels size without the header
 
         # allocate memory for pixels
         li a7, 9
@@ -132,7 +119,7 @@ size_calc:
 
         mv allocated, a0        # save allocated memory address
 
-        # load pixels
+        # load image data
         mv a0, file_decriptor
         mv a1, allocated
         mv a2, size
@@ -140,6 +127,7 @@ size_calc:
         ecall
 
         mv current_pixel_address, allocated  # get adress to the start of pixel array
+        addi current_pixel_address, current_pixel_address, 54
         sub current_pixel_address, current_pixel_address, padding  # sub padding to compensate for addition at the start of get_extremes
 
         li red_min, 255
@@ -155,9 +143,7 @@ get_extremes:
         addi t5, t5, 1  # increment iteration counter
         add current_pixel_address, current_pixel_address, padding  # adds padding, used for skipping padding
         mv t6, width    # pixel counter to reset when padding is reached
-        # beq t6, padding, get_extremes
-        bgt t5, height, print_extremes  # if number of iterations is greater than height it will go further
-
+        bgt t5, height, adjust_values  # if number of iterations is greater than height it will go further
 
 check_blue:
         lbu current_pixel_value, (current_pixel_address)
@@ -207,19 +193,91 @@ next_pixel:
         # bnez t6
         b check_blue
 
-print_extremes: # for debug purposes only !!remove
-        print_int red_min
-        print n
-        print_int red_max
-        print n
-        print_int green_min
-        print n
-        print_int green_max
-        print n
-        print_int blue_min
-        print n
-        print_int blue_max
-        print n
+# print_extremes: # for debug purposes only !!remove
+#         print_int red_min
+#         print n
+#         print_int red_max
+#         print n
+#         print_int green_min
+#         print n
+#         print_int green_max
+#         print n
+#         print_int blue_min
+#         print n
+#         print_int blue_max
+#         print n
+
+adjust_values:
+        sub red_max, red_max, red_min
+        sub green_max, green_max, green_min
+        sub blue_max, blue_max, blue_min
+        .eqv red_diff, s5
+        .eqv green_diff, s7
+        .eqv blue_diff, s9
+        .eqv max_value, s10
+        li max_value, 255
+        li t5, 0  # reset iteration counter
+        mv current_pixel_address, allocated  # get adress to the start of pixel array
+        addi current_pixel_address, current_pixel_address, 54
+        sub current_pixel_address, current_pixel_address, padding  # sub padding to compensate for addition at the start of get_extremes
+
+adjust_pixels:
+        addi t5, t5, 1  # increment iteration counter
+        add current_pixel_address, current_pixel_address, padding  # adds padding, used for skipping padding
+        mv t6, width    # pixel counter to reset when padding is reached
+        # beq t6, padding, get_extremes
+        bgt t5, height, save_data_to_file  # if number of iterations is greater than height it will go further
+
+adjust_blue:
+        lbu current_pixel_value, (current_pixel_address)
+        sub current_pixel_value, current_pixel_value, blue_min
+        mul current_pixel_value, current_pixel_value, max_value
+        div current_pixel_value, current_pixel_value, blue_diff
+        sb current_pixel_value, (current_pixel_address)
+
+adjust_green:
+        addi current_pixel_address, current_pixel_address, 1
+        lbu current_pixel_value, (current_pixel_address)
+        sub current_pixel_value, current_pixel_value, green_min
+        mul current_pixel_value, current_pixel_value, max_value
+        div current_pixel_value, current_pixel_value, green_diff
+        sb current_pixel_value, (current_pixel_address)
+
+adjust_red:
+        addi current_pixel_address, current_pixel_address, 1
+        lbu current_pixel_value, (current_pixel_address)
+        sub current_pixel_value, current_pixel_value, red_min
+        mul current_pixel_value, current_pixel_value, max_value
+        div current_pixel_value, current_pixel_value, red_diff
+        sb current_pixel_value, (current_pixel_address)
+
+next_pixel2:
+        addi t6, t6, -1 # decrement pixel counter
+        addi current_pixel_address, current_pixel_address, 1    # get next pixel address
+        beq t6, padding, adjust_pixels   # if rest of bytes are part of padding it will skip them
+        # bnez t6
+        b adjust_blue
+
+save_data_to_file:
+        # close file
+        mv a0, file_decriptor
+        li a7, 57
+        ecall
+
+        # open file in write only mode
+        li a7, 1024
+        la a0, filename
+        li a1, 1
+        ecall
+        bltz a0, error_reading
+
+        mv a1, allocated
+        mv a2, size
+        li a7, 64
+        ecall
+
+        print info2
+        quit
 
 error_reading:
         print error
