@@ -1,3 +1,8 @@
+# Damian D'Souza
+# Histogram stretching in RISC-V
+# Program will edit given image
+# in.bmp is provided only to show the difference
+
         .eqv    size, t0
         .eqv    allocated, t1
         .eqv    offset, t2
