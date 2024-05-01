@@ -115,7 +115,7 @@ read_header:
 
 size_calc:
         andi padding, width, 3  # calculate padding
-        add width, width, padding # get padded width value
+        add width, width, padding  # get padded width value
 
         # allocate memory for pixels
         li a7, 9
@@ -260,7 +260,6 @@ next_pixel2:
         addi t6, t6, -1 # decrement pixel counter
         addi current_pixel_address, current_pixel_address, 1    # get next pixel address
         beq t6, padding, adjust_pixels   # if rest of bytes are part of padding it will skip them
-        # bnez t6
         b adjust_blue
 
 save_data_to_file:
